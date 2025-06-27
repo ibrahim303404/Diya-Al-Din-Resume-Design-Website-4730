@@ -1,13 +1,30 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ضياء الدين - تصميم السير الذاتية الاحترافية</title>
+  <meta name="description" content="خدمات تصميم السير الذاتية الاحترافية في الإمارات العربية المتحدة" />
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+  
+  <!-- Netlify Forms Hidden Form (احتياطي) -->
+  <form name="cv-orders" netlify hidden>
+    <input type="text" name="customer-name" />
+    <input type="email" name="customer-email" />
+    <input type="tel" name="customer-phone" />
+    <input type="text" name="profession" />
+    <input type="text" name="experience" />
+    <input type="text" name="package" />
+    <input type="text" name="additional-services" />
+    <input type="number" name="total-price" />
+    <input type="text" name="order-id" />
+    <input type="text" name="existing-cv" />
+    <textarea name="notes"></textarea>
+    <textarea name="message"></textarea>
+  </form>
+</body>
 </html>

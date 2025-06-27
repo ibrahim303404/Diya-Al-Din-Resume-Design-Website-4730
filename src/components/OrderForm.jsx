@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
+import { saveOrderToDatabase, testDatabaseConnection } from '../services/supabaseOrderService';
 
-const { FiUser, FiMail, FiPhone, FiFileText, FiDollarSign, FiSend, FiUpload, FiFile } = FiIcons;
+const { FiUser, FiMail, FiPhone, FiFileText, FiDollarSign, FiSend, FiUpload, FiFile, FiLoader, FiAlertCircle, FiCheckCircle } = FiIcons;
 
 const OrderForm = ({ onSubmit }) => {
   const [formData, setFormData] = useState({
@@ -17,47 +18,23 @@ const OrderForm = ({ onSubmit }) => {
     notes: '',
     existingCV: null
   });
+
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState('');
+  const [errorDetails, setErrorDetails] = useState('');
 
   const packages = [
-    {
-      value: 'basic',
-      label: 'الباقة الأساسية - 150 درهم',
-      price: 150
-    },
-    {
-      value: 'advanced',
-      label: 'الباقة المتقدمة - 250 درهم',
-      price: 250
-    },
-    {
-      value: 'premium',
-      label: 'الباقة الذهبية - 400 درهم',
-      price: 400
-    }
+    { value: 'basic', label: 'الباقة الأساسية - 150 درهم', price: 150 },
+    { value: 'advanced', label: 'الباقة المتقدمة - 250 درهم', price: 250 },
+    { value: 'premium', label: 'الباقة الذهبية - 400 درهم', price: 400 }
   ];
 
   const additionalServices = [
-    {
-      value: 'update',
-      label: 'تحديث السيرة الذاتية',
-      price: 75
-    },
-    {
-      value: 'translation',
-      label: 'ترجمة إلى الإنجليزية',
-      price: 100
-    },
-    {
-      value: 'cover-letter',
-      label: 'خطاب تعريفي إضافي',
-      price: 50
-    },
-    {
-      value: 'linkedin',
-      label: 'تحسين ملف LinkedIn',
-      price: 125
-    }
+    { value: 'update', label: 'تحديث السيرة الذاتية', price: 75 },
+    { value: 'translation', label: 'ترجمة إلى الإنجليزية', price: 100 },
+    { value: 'cover-letter', label: 'خطاب تعريفي إضافي', price: 50 },
+    { value: 'linkedin', label: 'تحسين ملف LinkedIn', price: 125 }
   ];
 
   const handleInputChange = (e) => {
@@ -71,7 +48,6 @@ const OrderForm = ({ onSubmit }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // تحقق من نوع الملف
       const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
       if (allowedTypes.includes(file.type)) {
         setFormData(prev => ({
@@ -102,30 +78,107 @@ const OrderForm = ({ onSubmit }) => {
     return packagePrice + servicesPrice;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const orderData = {
-      ...formData,
-      totalPrice: calculateTotal(),
-      timestamp: new Date().toISOString()
-    };
-    onSubmit(orderData);
-    setIsSubmitted(true);
+  // اختبار الاتصال قبل الإرسال
+  const testConnection = async () => {
+    setSubmitStatus('اختبار الاتصال بقاعدة البيانات...');
+    const result = await testDatabaseConnection();
     
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        package: '',
-        profession: '',
-        experience: '',
-        additionalServices: [],
-        notes: '',
-        existingCV: null
-      });
-    }, 3000);
+    if (!result.success) {
+      setSubmitStatus('فشل في الاتصال بقاعدة البيانات');
+      setErrorDetails(`خطأ في الاتصال: ${result.error}`);
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setSubmitStatus('');
+    setErrorDetails('');
+
+    console.log('🚀 بدء معالجة الطلب:', formData);
+
+    try {
+      // اختبار الاتصال أولاً
+      const connectionOk = await testConnection();
+      if (!connectionOk) {
+        return;
+      }
+
+      setSubmitStatus('جاري حفظ الطلب في قاعدة البيانات...');
+
+      const orderData = {
+        ...formData,
+        totalPrice: calculateTotal(),
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('📦 بيانات الطلب المرسلة:', orderData);
+
+      // حفظ الطلب في Supabase
+      const result = await saveOrderToDatabase(orderData);
+      
+      console.log('📥 نتيجة حفظ الطلب:', result);
+
+      if (result.success) {
+        setSubmitStatus('✅ تم حفظ الطلب بنجاح!');
+        
+        // إضافة الطلب إلى الحالة المحلية
+        const localOrderData = {
+          ...orderData,
+          id: result.orderId,
+          status: 'جديد',
+          date: new Date().toLocaleDateString('ar-AE')
+        };
+        
+        if (onSubmit) {
+          onSubmit(localOrderData);
+        }
+        
+        setIsSubmitted(true);
+
+        // إعادة تعيين النموذج بعد النجاح
+        setTimeout(() => {
+          setIsSubmitted(false);
+          setSubmitStatus('');
+          setErrorDetails('');
+          setFormData({
+            name: '',
+            email: '',
+            phone: '',
+            package: '',
+            profession: '',
+            experience: '',
+            additionalServices: [],
+            notes: '',
+            existingCV: null
+          });
+        }, 5000);
+
+      } else {
+        setSubmitStatus('❌ فشل في حفظ الطلب');
+        setErrorDetails(result.message || result.error || 'خطأ غير معروف');
+        
+        setTimeout(() => {
+          setSubmitStatus('');
+          setErrorDetails('');
+        }, 5000);
+      }
+
+    } catch (error) {
+      console.error('💥 خطأ عام في إرسال الطلب:', error);
+      setSubmitStatus('❌ حدث خطأ غير متوقع');
+      setErrorDetails(`تفاصيل الخطأ: ${error.message}`);
+      
+      setTimeout(() => {
+        setSubmitStatus('');
+        setErrorDetails('');
+      }, 5000);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSubmitted) {
@@ -138,14 +191,20 @@ const OrderForm = ({ onSubmit }) => {
             className="max-w-md mx-auto bg-white rounded-2xl p-8 text-center shadow-2xl"
           >
             <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-              <SafeIcon icon={FiSend} className="text-white text-2xl" />
+              <SafeIcon icon={FiCheckCircle} className="text-white text-2xl" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">تم إرسال طلبك بنجاح!</h3>
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">تم حفظ طلبك بنجاح!</h3>
             <p className="text-gray-600 mb-6">
-              شكراً لك على ثقتك بنا. سنتواصل معك قريباً لتأكيد التفاصيل والبدء في العمل.
+              شكراً لك على ثقتك بنا. تم حفظ تفاصيل طلبك في قاعدة البيانات وإرسال الإشعارات. 
+              سنتواصل معك قريباً لتأكيد التفاصيل والبدء في العمل.
             </p>
+            <div className="bg-blue-50 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>إجمالي المبلغ:</strong> {calculateTotal()} درهم
+              </p>
+            </div>
             <div className="text-sm text-gray-500">
-              سيتم التواصل معك خلال 24 ساعة
+              تم إرسال تأكيد الطلب إلى بريدك الإلكتروني
             </div>
           </motion.div>
         </div>
@@ -164,7 +223,7 @@ const OrderForm = ({ onSubmit }) => {
         >
           <h2 className="text-4xl font-bold text-gray-800 mb-4">اطلب سيرتك الذاتية الآن</h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            املأ النموذج أدناه وسنتواصل معك لبدء العمل على سيرتك الذاتية المثالية
+            املأ النموذج أدناه وسيتم حفظ طلبك في قاعدة البيانات وإرسال الإشعارات تلقائياً
           </p>
         </motion.div>
 
@@ -316,7 +375,10 @@ const OrderForm = ({ onSubmit }) => {
                   </label>
                   <div className="space-y-3">
                     {packages.map((pkg) => (
-                      <label key={pkg.value} className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors">
+                      <label
+                        key={pkg.value}
+                        className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors"
+                      >
                         <input
                           type="radio"
                           name="package"
@@ -339,7 +401,10 @@ const OrderForm = ({ onSubmit }) => {
                   </label>
                   <div className="space-y-3">
                     {additionalServices.map((service) => (
-                      <label key={service.value} className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors">
+                      <label
+                        key={service.value}
+                        className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors"
+                      >
                         <input
                           type="checkbox"
                           checked={formData.additionalServices.includes(service.value)}
@@ -408,18 +473,73 @@ const OrderForm = ({ onSubmit }) => {
               </div>
             </div>
 
+            {/* حالة الإرسال */}
+            {(submitStatus || errorDetails) && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`mt-6 p-4 rounded-lg ${
+                  submitStatus.includes('✅') 
+                    ? 'bg-green-50 text-green-800 border border-green-200'
+                    : submitStatus.includes('❌') 
+                    ? 'bg-red-50 text-red-800 border border-red-200'
+                    : 'bg-blue-50 text-blue-800 border border-blue-200'
+                }`}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {isLoading && <SafeIcon icon={FiLoader} className="animate-spin" />}
+                    {submitStatus.includes('✅') && <SafeIcon icon={FiCheckCircle} />}
+                    {submitStatus.includes('❌') && <SafeIcon icon={FiAlertCircle} />}
+                    <span className="font-medium">{submitStatus}</span>
+                  </div>
+                  {errorDetails && (
+                    <div className="text-sm bg-red-100 p-3 rounded border-l-4 border-red-500">
+                      <strong>تفاصيل الخطأ:</strong>
+                      <br />
+                      {errorDetails}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             <div className="mt-12 text-center">
               <motion.button
                 type="submit"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-16 py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition-shadow"
+                disabled={isLoading || !formData.package || !formData.name || !formData.email || !formData.phone || !formData.profession}
+                whileHover={{ scale: isLoading ? 1 : 1.05 }}
+                whileTap={{ scale: isLoading ? 1 : 0.95 }}
+                className={`px-16 py-4 rounded-full font-bold text-lg shadow-lg transition-all ${
+                  isLoading || !formData.package || !formData.name || !formData.email || !formData.phone || !formData.profession
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-xl'
+                }`}
               >
-                إرسال الطلب الآن
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <SafeIcon icon={FiLoader} className="animate-spin" />
+                    جاري الحفظ...
+                  </div>
+                ) : (
+                  'حفظ الطلب الآن'
+                )}
               </motion.button>
               <p className="text-sm text-gray-500 mt-4">
-                سنتواصل معك خلال 24 ساعة لتأكيد الطلب وبدء العمل
+                سيتم حفظ طلبك في قاعدة البيانات وإرسال الإشعارات تلقائياً
               </p>
+              
+              {/* زر اختبار الاتصال */}
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={testConnection}
+                  className="text-sm text-blue-600 hover:text-blue-800 underline"
+                  disabled={isLoading}
+                >
+                  اختبار الاتصال بقاعدة البيانات
+                </button>
+              </div>
             </div>
           </motion.form>
         </div>

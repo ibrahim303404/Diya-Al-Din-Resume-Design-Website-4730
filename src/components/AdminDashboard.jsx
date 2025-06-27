@@ -1,21 +1,93 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
+import { 
+  getAllOrders, 
+  updateOrderStatus, 
+  deleteOrder,
+  subscribeToNewOrders,
+  unsubscribeFromOrders
+} from '../services/supabaseOrderService';
 
-const { FiHome, FiLogOut, FiUsers, FiDollarSign, FiClock, FiCheck, FiX, FiEye, FiEdit, FiTrash2 } = FiIcons;
+const { FiHome, FiLogOut, FiUsers, FiDollarSign, FiClock, FiCheck, FiX, FiEye, FiEdit, FiTrash2, FiRefreshCw } = FiIcons;
 
-const AdminDashboard = ({ orders, setOrders }) => {
+const AdminDashboard = () => {
+  const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const updateOrderStatus = (orderId, newStatus) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ));
+  useEffect(() => {
+    // جلب الطلبات عند تحميل الصفحة
+    loadOrders();
+
+    // الاستماع للطلبات الجديدة في الوقت الفعلي
+    const subscription = subscribeToNewOrders((newOrder) => {
+      setOrders(prev => [newOrder, ...prev]);
+      // إشعار صوتي أو بصري للطلب الجديد
+      if (Notification.permission === 'granted') {
+        new Notification('طلب جديد!', {
+          body: `طلب جديد من ${newOrder.customer_name}`,
+          icon: '/favicon.ico'
+        });
+      }
+    });
+
+    // طلب إذن الإشعارات
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    return () => {
+      unsubscribeFromOrders(subscription);
+    };
+  }, []);
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      const result = await getAllOrders();
+      if (result.success) {
+        setOrders(result.orders);
+      } else {
+        setError('فشل في جلب الطلبات');
+      }
+    } catch (err) {
+      setError('حدث خطأ في جلب الطلبات');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteOrder = (orderId) => {
-    setOrders(prev => prev.filter(order => order.id !== orderId));
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const result = await updateOrderStatus(orderId, newStatus);
+      if (result.success) {
+        setOrders(prev => prev.map(order => 
+          order.id === orderId ? { ...order, order_status: newStatus } : order
+        ));
+      } else {
+        alert('فشل في تحديث حالة الطلب');
+      }
+    } catch (err) {
+      alert('حدث خطأ في تحديث الطلب');
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (window.confirm('هل أنت متأكد من حذف هذا الطلب؟')) {
+      try {
+        const result = await deleteOrder(orderId);
+        if (result.success) {
+          setOrders(prev => prev.filter(order => order.id !== orderId));
+        } else {
+          alert('فشل في حذف الطلب');
+        }
+      } catch (err) {
+        alert('حدث خطأ في حذف الطلب');
+      }
+    }
   };
 
   const getStatusColor = (status) => {
@@ -28,9 +100,29 @@ const AdminDashboard = ({ orders, setOrders }) => {
     }
   };
 
-  const totalRevenue = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
-  const completedOrders = orders.filter(order => order.status === 'مكتمل').length;
-  const pendingOrders = orders.filter(order => order.status === 'جديد' || order.status === 'قيد التنفيذ').length;
+  const getPackageDisplayName = (packageType) => {
+    const packages = {
+      'basic': 'أساسية',
+      'advanced': 'متقدمة',
+      'premium': 'ذهبية'
+    };
+    return packages[packageType] || packageType;
+  };
+
+  const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.total_price) || 0), 0);
+  const completedOrders = orders.filter(order => order.order_status === 'مكتمل').length;
+  const pendingOrders = orders.filter(order => order.order_status === 'جديد' || order.order_status === 'قيد التنفيذ').length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <SafeIcon icon={FiRefreshCw} className="text-4xl text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">جاري تحميل الطلبات...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,7 +132,17 @@ const AdminDashboard = ({ orders, setOrders }) => {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-800">لوحة التحكم - ضياء الدين</h1>
             <div className="flex items-center space-x-4 space-x-reverse">
-              <a href="/" className="flex items-center space-x-2 space-x-reverse text-gray-600 hover:text-blue-600">
+              <button
+                onClick={loadOrders}
+                className="flex items-center space-x-2 space-x-reverse text-gray-600 hover:text-blue-600"
+              >
+                <SafeIcon icon={FiRefreshCw} />
+                <span>تحديث</span>
+              </button>
+              <a
+                href="/"
+                className="flex items-center space-x-2 space-x-reverse text-gray-600 hover:text-blue-600"
+              >
                 <SafeIcon icon={FiHome} />
                 <span>الموقع الرئيسي</span>
               </a>
@@ -118,7 +220,7 @@ const AdminDashboard = ({ orders, setOrders }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">إجمالي الإيرادات</p>
-                <p className="text-2xl font-bold text-purple-600">{totalRevenue} درهم</p>
+                <p className="text-2xl font-bold text-purple-600">{totalRevenue.toFixed(2)} درهم</p>
               </div>
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                 <SafeIcon icon={FiDollarSign} className="text-purple-600 text-xl" />
@@ -126,6 +228,12 @@ const AdminDashboard = ({ orders, setOrders }) => {
             </div>
           </motion.div>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
 
         {/* Orders Table */}
         <motion.div
@@ -135,12 +243,12 @@ const AdminDashboard = ({ orders, setOrders }) => {
           className="bg-white rounded-xl shadow-lg overflow-hidden"
         >
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-800">الطلبات الحديثة</h2>
+            <h2 className="text-xl font-bold text-gray-800">الطلبات من قاعدة البيانات</h2>
           </div>
 
           {orders.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              لا توجد طلبات حتى الآن
+              لا توجد طلبات في قاعدة البيانات
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -161,27 +269,26 @@ const AdminDashboard = ({ orders, setOrders }) => {
                     <tr key={order.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{order.name}</div>
-                          <div className="text-sm text-gray-500">{order.email}</div>
+                          <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
+                          <div className="text-sm text-gray-500">{order.customer_email}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {order.profession}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {order.package === 'basic' ? 'أساسية' : 
-                         order.package === 'advanced' ? 'متقدمة' : 'ذهبية'}
+                        {getPackageDisplayName(order.package_type)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {order.totalPrice} درهم
+                        {order.total_price} درهم
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                          {order.status}
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.order_status)}`}>
+                          {order.order_status}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {order.date}
+                        {new Date(order.order_date).toLocaleDateString('ar-AE')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2 space-x-reverse">
@@ -192,8 +299,8 @@ const AdminDashboard = ({ orders, setOrders }) => {
                             <SafeIcon icon={FiEye} />
                           </button>
                           <select
-                            value={order.status}
-                            onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                            value={order.order_status}
+                            onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
                             className="text-xs border border-gray-300 rounded px-2 py-1"
                           >
                             <option value="جديد">جديد</option>
@@ -202,7 +309,7 @@ const AdminDashboard = ({ orders, setOrders }) => {
                             <option value="ملغي">ملغي</option>
                           </select>
                           <button
-                            onClick={() => deleteOrder(order.id)}
+                            onClick={() => handleDeleteOrder(order.id)}
                             className="text-red-600 hover:text-red-900"
                           >
                             <SafeIcon icon={FiTrash2} />
@@ -235,20 +342,20 @@ const AdminDashboard = ({ orders, setOrders }) => {
                 <SafeIcon icon={FiX} className="text-xl" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">الاسم</label>
-                  <p className="text-gray-900">{selectedOrder.name}</p>
+                  <p className="text-gray-900">{selectedOrder.customer_name}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">البريد الإلكتروني</label>
-                  <p className="text-gray-900">{selectedOrder.email}</p>
+                  <p className="text-gray-900">{selectedOrder.customer_email}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">الهاتف</label>
-                  <p className="text-gray-900">{selectedOrder.phone}</p>
+                  <p className="text-gray-900">{selectedOrder.customer_phone}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">المهنة</label>
@@ -260,35 +367,40 @@ const AdminDashboard = ({ orders, setOrders }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">الباقة</label>
-                  <p className="text-gray-900">
-                    {selectedOrder.package === 'basic' ? 'أساسية' : 
-                     selectedOrder.package === 'advanced' ? 'متقدمة' : 'ذهبية'}
-                  </p>
+                  <p className="text-gray-900">{selectedOrder.package_name}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">رقم الطلب</label>
+                  <p className="text-gray-900">{selectedOrder.order_id}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">ملف سابق</label>
+                  <p className="text-gray-900">{selectedOrder.existing_cv_filename || 'لا يوجد'}</p>
                 </div>
               </div>
-              
-              {selectedOrder.additionalServices?.length > 0 && (
+
+              {selectedOrder.additional_services && selectedOrder.additional_services.length > 0 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">الخدمات الإضافية</label>
                   <ul className="list-disc list-inside text-gray-900">
-                    {selectedOrder.additionalServices.map((service, index) => (
+                    {selectedOrder.additional_services.map((service, index) => (
                       <li key={index}>{service}</li>
                     ))}
                   </ul>
                 </div>
               )}
-              
+
               {selectedOrder.notes && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700">ملاحظات</label>
                   <p className="text-gray-900">{selectedOrder.notes}</p>
                 </div>
               )}
-              
+
               <div className="bg-blue-50 rounded-lg p-4">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-800">إجمالي السعر:</span>
-                  <span className="text-xl font-bold text-blue-600">{selectedOrder.totalPrice} درهم</span>
+                  <span className="text-xl font-bold text-blue-600">{selectedOrder.total_price} درهم</span>
                 </div>
               </div>
             </div>
