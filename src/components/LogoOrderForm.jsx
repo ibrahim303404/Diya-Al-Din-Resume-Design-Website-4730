@@ -2,24 +2,25 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import { saveOrderToDatabase, testDatabaseConnection } from '../services/supabaseOrderService';
+import { saveLogoOrderToDatabase } from '../services/supabaseLogoService';
 
 const { 
-  FiUser, FiMail, FiPhone, FiFileText, FiDollarSign, FiSend, FiUpload, 
-  FiFile, FiLoader, FiAlertCircle, FiCheckCircle 
+  FiUser, FiMail, FiPhone, FiBriefcase, FiDollarSign, FiSend, FiUpload, 
+  FiFile, FiLoader, FiAlertCircle, FiCheckCircle, FiPenTool, FiPalette 
 } = FiIcons;
 
-const OrderForm = ({ onSubmit }) => {
+const LogoOrderForm = ({ onSubmit }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    package: '',
-    profession: '',
-    experience: '',
-    additionalServices: [],
+    businessName: '',
+    businessType: '',
+    logoPackage: '',
+    stylePreferences: [],
+    colorPreferences: '',
     notes: '',
-    existingCV: null
+    inspirationFiles: null
   });
 
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -27,17 +28,35 @@ const OrderForm = ({ onSubmit }) => {
   const [submitStatus, setSubmitStatus] = useState('');
   const [errorDetails, setErrorDetails] = useState('');
 
-  const packages = [
-    { value: 'basic', label: 'الباقة الأساسية - 150 درهم', price: 150 },
-    { value: 'advanced', label: 'الباقة المتقدمة - 250 درهم', price: 250 },
-    { value: 'premium', label: 'الباقة الذهبية - 400 درهم', price: 400 }
+  const logoPackages = [
+    { value: 'basic', label: 'باقة اللوجو الأساسية - 200 درهم', price: 200 },
+    { value: 'advanced', label: 'باقة اللوجو المتقدمة - 350 درهم', price: 350 },
+    { value: 'premium', label: 'باقة الهوية المتكاملة - 600 درهم', price: 600 }
   ];
 
-  const additionalServices = [
-    { value: 'update', label: 'تحديث السيرة الذاتية', price: 75 },
-    { value: 'translation', label: 'ترجمة إلى الإنجليزية', price: 100 },
-    { value: 'cover-letter', label: 'خطاب تعريفي إضافي', price: 50 },
-    { value: 'linkedin', label: 'تحسين ملف LinkedIn', price: 125 }
+  const businessTypes = [
+    'تقنية ومعلومات',
+    'طبية وصحية',
+    'تعليمية',
+    'مطاعم وضيافة',
+    'تجارة وبيع التجزئة',
+    'خدمات مالية',
+    'عقارات',
+    'رياضة ولياقة',
+    'جمال وتجميل',
+    'استشارات',
+    'أخرى'
+  ];
+
+  const stylePreferences = [
+    { value: 'modern', label: 'عصري ومعاصر' },
+    { value: 'classic', label: 'كلاسيكي وتقليدي' },
+    { value: 'minimalist', label: 'بسيط ومينيمال' },
+    { value: 'bold', label: 'جريء وقوي' },
+    { value: 'elegant', label: 'أنيق وراقي' },
+    { value: 'playful', label: 'مرح وإبداعي' },
+    { value: 'professional', label: 'مهني وجدي' },
+    { value: 'artistic', label: 'فني وإبداعي' }
   ];
 
   const handleInputChange = (e) => {
@@ -49,46 +68,44 @@ const OrderForm = ({ onSubmit }) => {
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      ];
-
-      if (allowedTypes.includes(file.type)) {
-        const maxSize = 10 * 1024 * 1024; // 10MB
-        if (file.size > maxSize) {
-          alert('حجم الملف كبير جداً. الحد الأقصى 10MB');
-          return;
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+      const maxSize = 5 * 1024 * 1024; // 5MB per file
+      
+      const validFiles = Array.from(files).filter(file => {
+        if (!allowedTypes.includes(file.type)) {
+          alert(`نوع الملف ${file.name} غير مدعوم. يرجى رفع صور أو ملفات PDF فقط`);
+          return false;
         }
+        if (file.size > maxSize) {
+          alert(`حجم الملف ${file.name} كبير جداً. الحد الأقصى 5MB`);
+          return false;
+        }
+        return true;
+      });
+
+      if (validFiles.length > 0) {
         setFormData(prev => ({
           ...prev,
-          existingCV: file
+          inspirationFiles: validFiles
         }));
-      } else {
-        alert('يرجى رفع ملف PDF أو Word فقط');
       }
     }
   };
 
-  const handleServiceChange = (serviceValue) => {
+  const handleStyleChange = (styleValue) => {
     setFormData(prev => ({
       ...prev,
-      additionalServices: prev.additionalServices.includes(serviceValue)
-        ? prev.additionalServices.filter(s => s !== serviceValue)
-        : [...prev.additionalServices, serviceValue]
+      stylePreferences: prev.stylePreferences.includes(styleValue)
+        ? prev.stylePreferences.filter(s => s !== styleValue)
+        : [...prev.stylePreferences, styleValue]
     }));
   };
 
   const calculateTotal = () => {
-    const packagePrice = packages.find(p => p.value === formData.package)?.price || 0;
-    const servicesPrice = formData.additionalServices.reduce((total, service) => {
-      const serviceObj = additionalServices.find(s => s.value === service);
-      return total + (serviceObj?.price || 0);
-    }, 0);
-    return packagePrice + servicesPrice;
+    const packagePrice = logoPackages.find(p => p.value === formData.logoPackage)?.price || 0;
+    return packagePrice;
   };
 
   const handleSubmit = async (e) => {
@@ -97,33 +114,29 @@ const OrderForm = ({ onSubmit }) => {
     setSubmitStatus('');
     setErrorDetails('');
 
-    console.log('🚀 بدء معالجة طلب السيرة الذاتية:', formData);
+    console.log('🚀 بدء معالجة طلب اللوجو:', formData);
 
     try {
-      setSubmitStatus('جاري حفظ طلب السيرة الذاتية في قاعدة البيانات...');
+      setSubmitStatus('جاري حفظ طلب اللوجو في قاعدة البيانات...');
 
-      const orderData = {
+      const logoOrderData = {
         ...formData,
         totalPrice: calculateTotal(),
         timestamp: new Date().toISOString()
       };
 
-      console.log('📦 بيانات طلب السيرة الذاتية:', orderData);
+      console.log('📦 بيانات طلب اللوجو:', logoOrderData);
 
       // حفظ الطلب في Supabase
-      const result = await saveOrderToDatabase(orderData);
-      console.log('📥 نتيجة حفظ طلب السيرة الذاتية:', result);
+      const result = await saveLogoOrderToDatabase(logoOrderData);
+      console.log('📥 نتيجة حفظ طلب اللوجو:', result);
 
       if (result.success) {
-        setSubmitStatus('✅ تم حفظ طلب السيرة الذاتية بنجاح!');
+        setSubmitStatus('✅ تم حفظ طلب اللوجو بنجاح!');
         
-        if (result.fileUploaded) {
-          setSubmitStatus('✅ تم حفظ طلب السيرة الذاتية مع رفع الملف بنجاح!');
-        }
-
         // إضافة الطلب إلى الحالة المحلية
         const localOrderData = {
-          ...orderData,
+          ...logoOrderData,
           id: result.orderId,
           status: 'جديد',
           date: new Date().toLocaleDateString('ar-AE')
@@ -144,16 +157,17 @@ const OrderForm = ({ onSubmit }) => {
             name: '',
             email: '',
             phone: '',
-            package: '',
-            profession: '',
-            experience: '',
-            additionalServices: [],
+            businessName: '',
+            businessType: '',
+            logoPackage: '',
+            stylePreferences: [],
+            colorPreferences: '',
             notes: '',
-            existingCV: null
+            inspirationFiles: null
           });
         }, 5000);
       } else {
-        setSubmitStatus('❌ فشل في حفظ طلب السيرة الذاتية');
+        setSubmitStatus('❌ فشل في حفظ طلب اللوجو');
         setErrorDetails(result.message || result.error || 'خطأ غير معروف');
         setTimeout(() => {
           setSubmitStatus('');
@@ -161,7 +175,7 @@ const OrderForm = ({ onSubmit }) => {
         }, 5000);
       }
     } catch (error) {
-      console.error('💥 خطأ عام في إرسال طلب السيرة الذاتية:', error);
+      console.error('💥 خطأ عام في إرسال طلب اللوجو:', error);
       setSubmitStatus('❌ حدث خطأ غير متوقع');
       setErrorDetails(`تفاصيل الخطأ: ${error.message}`);
       setTimeout(() => {
@@ -175,32 +189,30 @@ const OrderForm = ({ onSubmit }) => {
 
   if (isSubmitted) {
     return (
-      <section id="order" className="py-20 bg-gradient-to-br from-blue-50 to-indigo-50">
+      <section id="logo-order" className="py-20 bg-gradient-to-br from-purple-50 to-pink-50">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             className="max-w-md mx-auto bg-white rounded-2xl p-8 text-center shadow-2xl"
           >
-            <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <SafeIcon icon={FiCheckCircle} className="text-white text-2xl" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">تم إرسال طلب السيرة الذاتية بنجاح!</h3>
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">تم إرسال طلب اللوجو بنجاح!</h3>
             <p className="text-gray-600 mb-6">
-              شكراً لك على ثقتك بنا. تم حفظ تفاصيل طلب السيرة الذاتية وسنتواصل معك قريباً.
+              شكراً لك على ثقتك بنا. تم حفظ تفاصيل طلب اللوجو وسنتواصل معك قريباً لبدء التصميم.
             </p>
-            <div className="bg-blue-50 rounded-lg p-4 mb-4">
-              <p className="text-sm text-blue-800">
+            <div className="bg-purple-50 rounded-lg p-4 mb-4">
+              <p className="text-sm text-purple-800">
                 <strong>إجمالي المبلغ:</strong> {calculateTotal()} درهم
               </p>
             </div>
-            {formData.existingCV && (
-              <div className="bg-green-50 rounded-lg p-4 mb-4">
-                <p className="text-sm text-green-800">
-                  <strong>الملف المرفق:</strong> {formData.existingCV.name}
-                </p>
-              </div>
-            )}
+            <div className="bg-blue-50 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>اسم الشركة:</strong> {formData.businessName}
+              </p>
+            </div>
           </motion.div>
         </div>
       </section>
@@ -208,7 +220,7 @@ const OrderForm = ({ onSubmit }) => {
   }
 
   return (
-    <section id="order" className="py-20 bg-gradient-to-br from-blue-50 to-indigo-50" dir="rtl">
+    <section id="logo-order" className="py-20 bg-gradient-to-br from-purple-50 to-pink-50" dir="rtl">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -217,11 +229,11 @@ const OrderForm = ({ onSubmit }) => {
           className="text-center mb-16"
         >
           <div className="flex items-center justify-center mb-4">
-            <SafeIcon icon={FiFileText} className="text-4xl text-blue-600 ml-3" />
-            <h2 className="text-4xl font-bold text-gray-800">اطلب سيرتك الذاتية</h2>
+            <SafeIcon icon={FiPenTool} className="text-4xl text-purple-600 ml-3" />
+            <h2 className="text-4xl font-bold text-gray-800">اطلب تصميم لوجو احترافي</h2>
           </div>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            املأ النموذج أدناه وسيتم حفظ طلب السيرة الذاتية في قاعدة البيانات مع رفع الملفات
+            املأ النموذج أدناه وسيتم حفظ طلب اللوجو في قاعدة البيانات وسنبدأ العمل على تصميمك
           </p>
         </motion.div>
 
@@ -234,16 +246,16 @@ const OrderForm = ({ onSubmit }) => {
             className="bg-white rounded-2xl shadow-2xl p-8"
           >
             <div className="grid md:grid-cols-2 gap-12">
-              {/* المعلومات الشخصية */}
-              <div className="order-1 space-y-6">
+              {/* معلومات العميل والشركة */}
+              <div className="space-y-6">
                 <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                  <SafeIcon icon={FiUser} className="mr-3 text-blue-600 text-xl" />
-                  المعلومات الشخصية
+                  <SafeIcon icon={FiUser} className="mr-3 text-purple-600 text-xl" />
+                  معلومات العميل والشركة
                 </h3>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    الاسم الكامل *
+                    اسمك الكامل *
                   </label>
                   <input
                     type="text"
@@ -251,7 +263,7 @@ const OrderForm = ({ onSubmit }) => {
                     value={formData.name}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-right"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-right"
                     placeholder="أدخل اسمك الكامل"
                     dir="rtl"
                   />
@@ -267,7 +279,7 @@ const OrderForm = ({ onSubmit }) => {
                     value={formData.email}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-right"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-right"
                     placeholder="example@email.com"
                     dir="ltr"
                   />
@@ -283,7 +295,7 @@ const OrderForm = ({ onSubmit }) => {
                     value={formData.phone}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-right"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-right"
                     placeholder="+971 XX XXX XXXX"
                     dir="ltr"
                   />
@@ -291,102 +303,102 @@ const OrderForm = ({ onSubmit }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    المهنة/التخصص *
+                    اسم الشركة أو المشروع *
                   </label>
                   <input
                     type="text"
-                    name="profession"
-                    value={formData.profession}
+                    name="businessName"
+                    value={formData.businessName}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-right"
-                    placeholder="مثال: مهندس برمجيات"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-right"
+                    placeholder="اسم شركتك أو مشروعك"
                     dir="rtl"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    سنوات الخبرة
+                    نوع النشاط التجاري *
                   </label>
                   <select
-                    name="experience"
-                    value={formData.experience}
+                    name="businessType"
+                    value={formData.businessType}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-right"
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-right"
                     dir="rtl"
                   >
-                    <option value="">اختر سنوات الخبرة</option>
-                    <option value="fresh">خريج جديد</option>
-                    <option value="1-2">1-2 سنة</option>
-                    <option value="3-5">3-5 سنوات</option>
-                    <option value="6-10">6-10 سنوات</option>
-                    <option value="10+">أكثر من 10 سنوات</option>
+                    <option value="">اختر نوع النشاط</option>
+                    {businessTypes.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
                   </select>
                 </div>
 
-                {/* رفع ملف محسن */}
+                {/* رفع ملفات الإلهام */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    رفع سيرة ذاتية سابقة (اختياري)
+                    ملفات إلهام أو مراجع (اختياري)
                   </label>
                   <div className="relative">
                     <input
                       type="file"
-                      id="cvFile"
+                      id="inspirationFiles"
                       onChange={handleFileChange}
-                      accept=".pdf,.doc,.docx"
+                      accept="image/*,application/pdf"
+                      multiple
                       className="hidden"
                     />
                     <label
-                      htmlFor="cvFile"
-                      className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors flex items-center justify-center gap-2"
+                      htmlFor="inspirationFiles"
+                      className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-500 transition-colors flex items-center justify-center gap-2"
                     >
                       <SafeIcon icon={FiUpload} className="text-gray-400" />
                       <span className="text-gray-600">
-                        {formData.existingCV ? formData.existingCV.name : 'اختر ملف PDF أو Word'}
+                        {formData.inspirationFiles ? 
+                          `تم اختيار ${formData.inspirationFiles.length} ملف` : 
+                          'اختر صور أو ملفات للإلهام'
+                        }
                       </span>
                     </label>
-                    {formData.existingCV && (
-                      <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
-                        <SafeIcon icon={FiFile} />
-                        <span>تم اختيار: {formData.existingCV.name}</span>
-                        <span className="text-xs text-gray-500">
-                          ({(formData.existingCV.size / 1024 / 1024).toFixed(2)} MB)
-                        </span>
+                    {formData.inspirationFiles && formData.inspirationFiles.length > 0 && (
+                      <div className="mt-2 text-sm text-purple-600">
+                        <SafeIcon icon={FiFile} className="inline ml-1" />
+                        <span>تم اختيار {formData.inspirationFiles.length} ملف</span>
                       </div>
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    الأنواع المدعومة: PDF, DOC, DOCX - أقصى حجم: 10MB
+                    الأنواع المدعومة: JPG, PNG, GIF, PDF - أقصى حجم: 5MB لكل ملف
                   </p>
                 </div>
               </div>
 
-              {/* تفاصيل الطلب */}
-              <div className="order-2 space-y-6">
+              {/* تفاصيل التصميم والباقة */}
+              <div className="space-y-6">
                 <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                  <SafeIcon icon={FiFileText} className="mr-3 text-blue-600 text-xl" />
-                  تفاصيل الطلب
+                  <SafeIcon icon={FiPenTool} className="mr-3 text-purple-600 text-xl" />
+                  تفاصيل التصميم
                 </h3>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    اختر الباقة *
+                    اختر باقة اللوجو *
                   </label>
                   <div className="space-y-3">
-                    {packages.map((pkg) => (
+                    {logoPackages.map((pkg) => (
                       <label
                         key={pkg.value}
-                        className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors"
+                        className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-purple-300 cursor-pointer transition-colors"
                       >
                         <input
                           type="radio"
-                          name="package"
+                          name="logoPackage"
                           value={pkg.value}
-                          checked={formData.package === pkg.value}
+                          checked={formData.logoPackage === pkg.value}
                           onChange={handleInputChange}
-                          className="text-blue-600 focus:ring-blue-500 ml-3"
+                          className="text-purple-600 focus:ring-purple-500 ml-3"
                         />
                         <div className="flex-1">
                           <span className="text-gray-700 font-medium">{pkg.label}</span>
@@ -398,24 +410,21 @@ const OrderForm = ({ onSubmit }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    خدمات إضافية
+                    أسلوب التصميم المفضل (يمكن اختيار أكثر من واحد)
                   </label>
-                  <div className="space-y-3">
-                    {additionalServices.map((service) => (
+                  <div className="grid grid-cols-2 gap-3">
+                    {stylePreferences.map((style) => (
                       <label
-                        key={service.value}
-                        className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-blue-300 cursor-pointer transition-colors"
+                        key={style.value}
+                        className="flex items-center p-3 border border-gray-200 rounded-lg hover:border-purple-300 cursor-pointer transition-colors"
                       >
                         <input
                           type="checkbox"
-                          checked={formData.additionalServices.includes(service.value)}
-                          onChange={() => handleServiceChange(service.value)}
-                          className="text-blue-600 focus:ring-blue-500 ml-3"
+                          checked={formData.stylePreferences.includes(style.value)}
+                          onChange={() => handleStyleChange(style.value)}
+                          className="text-purple-600 focus:ring-purple-500 ml-2"
                         />
-                        <div className="flex-1 flex justify-between items-center">
-                          <span className="text-gray-700">{service.label}</span>
-                          <span className="text-blue-600 font-semibold">{service.price} درهم</span>
-                        </div>
+                        <span className="text-sm text-gray-700">{style.label}</span>
                       </label>
                     ))}
                   </div>
@@ -423,48 +432,53 @@ const OrderForm = ({ onSubmit }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ملاحظات إضافية
+                    <SafeIcon icon={FiPalette} className="inline ml-1" />
+                    تفضيلات الألوان
+                  </label>
+                  <input
+                    type="text"
+                    name="colorPreferences"
+                    value={formData.colorPreferences}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-right"
+                    placeholder="مثال: أزرق وأبيض، ألوان دافئة، أو اتركه فارغاً للحصول على اقتراحات"
+                    dir="rtl"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ملاحظات وتفاصيل إضافية
                   </label>
                   <textarea
                     name="notes"
                     value={formData.notes}
                     onChange={handleInputChange}
                     rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-right"
-                    placeholder="أي متطلبات خاصة أو ملاحظات..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors text-right"
+                    placeholder="أي متطلبات خاصة، رسالة الشركة، الجمهور المستهدف، أو أي معلومات أخرى تساعدنا في التصميم..."
                     dir="rtl"
                   />
                 </div>
 
                 {/* ملخص السعر */}
-                {formData.package && (
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border-r-4 border-blue-500">
+                {formData.logoPackage && (
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border-r-4 border-purple-500">
                     <h4 className="font-bold text-gray-800 mb-4 flex items-center text-lg">
-                      <SafeIcon icon={FiDollarSign} className="mr-2 text-blue-600" />
+                      <SafeIcon icon={FiDollarSign} className="mr-2 text-purple-600" />
                       ملخص السعر
                     </h4>
                     <div className="space-y-2 text-gray-700">
                       <div className="flex justify-between items-center">
                         <span>الباقة المختارة:</span>
-                        <span className="font-semibold text-blue-600">
-                          {packages.find(p => p.value === formData.package)?.price || 0} درهم
+                        <span className="font-semibold text-purple-600">
+                          {logoPackages.find(p => p.value === formData.logoPackage)?.price || 0} درهم
                         </span>
                       </div>
-                      {formData.additionalServices.length > 0 && (
-                        <div className="flex justify-between items-center">
-                          <span>الخدمات الإضافية:</span>
-                          <span className="font-semibold text-blue-600">
-                            {formData.additionalServices.reduce((total, service) => {
-                              const serviceObj = additionalServices.find(s => s.value === service);
-                              return total + (serviceObj?.price || 0);
-                            }, 0)} درهم
-                          </span>
-                        </div>
-                      )}
                       <hr className="my-3 border-gray-300" />
                       <div className="flex justify-between items-center text-xl">
                         <span className="font-bold text-gray-800">المجموع الكلي:</span>
-                        <span className="font-bold text-blue-600 text-2xl">
+                        <span className="font-bold text-purple-600 text-2xl">
                           {calculateTotal()} درهم
                         </span>
                       </div>
@@ -508,29 +522,29 @@ const OrderForm = ({ onSubmit }) => {
             <div className="mt-12 text-center">
               <motion.button
                 type="submit"
-                disabled={isLoading || !formData.package || !formData.name || !formData.email || !formData.phone || !formData.profession}
+                disabled={isLoading || !formData.logoPackage || !formData.name || !formData.email || !formData.phone || !formData.businessName || !formData.businessType}
                 whileHover={{ scale: isLoading ? 1 : 1.05 }}
                 whileTap={{ scale: isLoading ? 1 : 0.95 }}
                 className={`px-16 py-4 rounded-full font-bold text-lg shadow-lg transition-all ${
-                  isLoading || !formData.package || !formData.name || !formData.email || !formData.phone || !formData.profession
+                  isLoading || !formData.logoPackage || !formData.name || !formData.email || !formData.phone || !formData.businessName || !formData.businessType
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-xl'
+                    : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-xl'
                 }`}
               >
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <SafeIcon icon={FiLoader} className="animate-spin" />
-                    جاري الإرسال...
+                    جاري إرسال الطلب...
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <SafeIcon icon={FiFileText} />
-                    إرسال طلب السيرة الذاتية
+                    <SafeIcon icon={FiPenTool} />
+                    إرسال طلب اللوجو
                   </div>
                 )}
               </motion.button>
               <p className="text-sm text-gray-500 mt-4">
-                سيتم حفظ طلب السيرة الذاتية مع رفع الملفات في قاعدة البيانات بأمان
+                سيتم حفظ طلب اللوجو في قاعدة البيانات وسنتواصل معك خلال 24 ساعة
               </p>
             </div>
           </motion.form>
@@ -540,4 +554,4 @@ const OrderForm = ({ onSubmit }) => {
   );
 };
 
-export default OrderForm;
+export default LogoOrderForm;

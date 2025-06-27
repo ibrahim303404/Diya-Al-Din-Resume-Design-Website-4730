@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 
-const { FiMail, FiPhone, FiMapPin, FiInstagram, FiTwitter, FiLinkedin, FiUser } = FiIcons;
+const { FiMail, FiPhone, FiMapPin, FiInstagram, FiTwitter, FiLinkedin, FiPenTool } = FiIcons;
 
 const Footer = () => {
   const handleScrollToSection = (sectionId) => {
@@ -14,7 +14,7 @@ const Footer = () => {
   };
 
   return (
-    <footer className="bg-gradient-to-br from-gray-900 to-blue-900 text-white py-16">
+    <footer className="bg-gradient-to-br from-gray-900 to-purple-900 text-white py-16">
       <div className="container mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-8">
           {/* Company Info */}
@@ -25,16 +25,16 @@ const Footer = () => {
             className="space-y-4"
           >
             <div className="flex items-center space-x-2 space-x-reverse">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <SafeIcon icon={FiUser} className="text-white text-xl" />
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg flex items-center justify-center">
+                <SafeIcon icon={FiPenTool} className="text-white text-xl" />
               </div>
               <div>
-                <h3 className="text-xl font-bold">ضياء الدين</h3>
-                <p className="text-blue-300 text-sm">تصميم السير الذاتية</p>
+                <h3 className="text-xl font-bold">ضياء الدين بووش للتصاميم</h3>
+                <p className="text-purple-300 text-sm">تصميم السير الذاتية واللوجوهات</p>
               </div>
             </div>
             <p className="text-gray-300 leading-relaxed">
-              نحن متخصصون في تصميم السير الذاتية الاحترافية التي تساعدك في الحصول على الوظيفة المثالية. خبرة أكثر من 3 سنوات في هذا المجال.
+              نحن متخصصون في تصميم السير الذاتية الاحترافية واللوجوهات المميزة التي تساعدك في إبراز هويتك المهنية. خبرة أكثر من 3 سنوات في هذا المجال.
             </p>
           </motion.div>
 
@@ -49,15 +49,15 @@ const Footer = () => {
             <ul className="space-y-3">
               {[
                 { name: 'الرئيسية', section: '#home' },
-                { name: 'الخدمات', section: '#portfolio' },
+                { name: 'الخدمات', section: '#services' },
                 { name: 'معرض الأعمال', section: '#portfolio' },
                 { name: 'الأسعار', section: '#pricing' },
                 { name: 'اطلب الآن', section: '#order' }
               ].map((link, index) => (
                 <li key={index}>
-                  <button 
-                    onClick={() => handleScrollToSection(link.section)} 
-                    className="text-gray-300 hover:text-blue-400 transition-colors cursor-pointer text-right w-full"
+                  <button
+                    onClick={() => handleScrollToSection(link.section)}
+                    className="text-gray-300 hover:text-purple-400 transition-colors cursor-pointer text-right w-full"
                   >
                     {link.name}
                   </button>
@@ -75,7 +75,14 @@ const Footer = () => {
           >
             <h4 className="text-lg font-semibold mb-6">خدماتنا</h4>
             <ul className="space-y-3">
-              {['السيرة الكلاسيكية', 'السيرة الإبداعية', 'السيرة التنفيذية', 'السيرة التقنية', 'تحديث السيرة'].map((service, index) => (
+              {[
+                'السيرة الكلاسيكية',
+                'السيرة الإبداعية',
+                'السيرة التنفيذية',
+                'السيرة التقنية',
+                'تصميم اللوجو',
+                'الهوية البصرية'
+              ].map((service, index) => (
                 <li key={index} className="text-gray-300">
                   {service}
                 </li>
@@ -93,15 +100,15 @@ const Footer = () => {
             <h4 className="text-lg font-semibold mb-6">تواصل معنا</h4>
             <div className="space-y-4">
               <div className="flex items-center space-x-3 space-x-reverse">
-                <SafeIcon icon={FiMail} className="text-blue-400" />
+                <SafeIcon icon={FiMail} className="text-purple-400" />
                 <span className="text-gray-300">nestaman2@gmail.com</span>
               </div>
               <div className="flex items-center space-x-3 space-x-reverse">
-                <SafeIcon icon={FiPhone} className="text-blue-400" />
+                <SafeIcon icon={FiPhone} className="text-purple-400" />
                 <span className="text-gray-300">+971 XX XXX XXXX</span>
               </div>
               <div className="flex items-center space-x-3 space-x-reverse">
-                <SafeIcon icon={FiMapPin} className="text-blue-400" />
+                <SafeIcon icon={FiMapPin} className="text-purple-400" />
                 <span className="text-gray-300">الإمارات العربية المتحدة</span>
               </div>
             </div>
@@ -116,7 +123,7 @@ const Footer = () => {
                     href="#"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
-                    className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center hover:bg-blue-700 transition-colors"
+                    className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center hover:bg-purple-700 transition-colors"
                   >
                     <SafeIcon icon={Icon} className="text-white" />
                   </motion.a>
@@ -135,7 +142,7 @@ const Footer = () => {
           className="border-t border-gray-700 mt-12 pt-8 text-center"
         >
           <p className="text-gray-400">
-            © 2024 ضياء الدين لتصميم السير الذاتية. جميع الحقوق محفوظة.
+            © 2024 ضياء الدين بووش للتصاميم. جميع الحقوق محفوظة.
           </p>
         </motion.div>
       </div>

@@ -3,10 +3,10 @@ import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 
-const { FiCheck, FiStar, FiZap, FiAward } = FiIcons;
+const { FiCheck, FiStar, FiZap, FiAward, FiFileText } = FiIcons;
 
 const Pricing = () => {
-  const plans = [
+  const cvPlans = [
     {
       name: 'الباقة الأساسية',
       price: '150',
@@ -39,7 +39,7 @@ const Pricing = () => {
         'دعم فني متقدم'
       ],
       popular: true,
-      color: 'from-purple-500 to-pink-500'
+      color: 'from-blue-500 to-indigo-500'
     },
     {
       name: 'الباقة الذهبية',
@@ -82,7 +82,7 @@ const Pricing = () => {
     {
       name: 'تحسين ملف LinkedIn',
       price: '125',
-      description: 'تحسين وتطوير ملفك المهني'
+      description: 'تحسين ملفك الشخصي على LinkedIn'
     }
   ];
 
@@ -102,14 +102,17 @@ const Pricing = () => {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="text-4xl font-bold text-gray-800 mb-4">باقات الأسعار</h2>
+          <div className="flex items-center justify-center mb-4">
+            <SafeIcon icon={FiFileText} className="text-4xl text-blue-600 ml-3" />
+            <h2 className="text-4xl font-bold text-gray-800">باقات السيرة الذاتية</h2>
+          </div>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            اختر الباقة المناسبة لك - جميع الأسعار بالدرهم الإماراتي
+            اختر الباقة المناسبة لتصميم سيرتك الذاتية - جميع الأسعار بالدرهم الإماراتي
           </p>
         </motion.div>
 
         <div className="grid md:grid-cols-3 gap-8 mb-16">
-          {plans.map((plan, index) => (
+          {cvPlans.map((plan, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 30 }}
@@ -118,12 +121,12 @@ const Pricing = () => {
               transition={{ delay: index * 0.1 }}
               whileHover={{ y: -10 }}
               className={`relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 ${
-                plan.popular ? 'ring-2 ring-purple-500 scale-105' : ''
+                plan.popular ? 'ring-2 ring-blue-500 scale-105' : ''
               }`}
             >
               {plan.popular && (
                 <div className="absolute -top-4 right-1/2 transform translate-x-1/2">
-                  <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-2 rounded-full text-sm font-semibold">
+                  <span className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-2 rounded-full text-sm font-semibold">
                     الأكثر طلباً
                   </span>
                 </div>
@@ -133,7 +136,6 @@ const Pricing = () => {
                 <div className={`inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r ${plan.color} rounded-xl mb-6`}>
                   <SafeIcon icon={plan.icon} className="text-white text-2xl" />
                 </div>
-
                 <h3 className="text-2xl font-bold text-gray-800 mb-2">{plan.name}</h3>
                 <p className="text-gray-600 mb-6">{plan.description}</p>
 
@@ -157,7 +159,7 @@ const Pricing = () => {
                   whileTap={{ scale: 0.95 }}
                   className={`w-full py-4 rounded-xl font-semibold transition-all cursor-pointer ${
                     plan.popular
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg hover:shadow-xl'
+                      ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg hover:shadow-xl'
                       : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                   }`}
                 >
@@ -173,9 +175,12 @@ const Pricing = () => {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8"
+          className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8"
         >
-          <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">خدمات إضافية</h3>
+          <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center flex items-center justify-center">
+            <SafeIcon icon={FiFileText} className="ml-2 text-blue-600" />
+            خدمات إضافية للسيرة الذاتية
+          </h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {additionalServices.map((service, index) => (
               <motion.div
@@ -211,7 +216,6 @@ const Pricing = () => {
                 <h4 className="font-semibold text-gray-800 mb-2">ضمان الجودة</h4>
                 <p className="text-sm text-gray-600">نضمن لك جودة عالية في جميع تصاميمنا</p>
               </div>
-              
               <div className="flex flex-col items-center">
                 <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center mb-3">
                   <SafeIcon icon={FiZap} className="text-white text-xl" />
@@ -219,7 +223,6 @@ const Pricing = () => {
                 <h4 className="font-semibold text-gray-800 mb-2">تسليم سريع</h4>
                 <p className="text-sm text-gray-600">التزام تام بمواعيد التسليم المحددة</p>
               </div>
-              
               <div className="flex flex-col items-center">
                 <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center mb-3">
                   <SafeIcon icon={FiStar} className="text-white text-xl" />

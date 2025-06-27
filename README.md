@@ -67,28 +67,24 @@
 ### 1. **حفظ الطلبات:**
 ```javascript
 import { saveOrderToDatabase } from './services/supabaseOrderService';
-
 const result = await saveOrderToDatabase(orderData);
 ```
 
 ### 2. **جلب الطلبات:**
 ```javascript
 import { getAllOrders } from './services/supabaseOrderService';
-
 const orders = await getAllOrders();
 ```
 
 ### 3. **تحديث الحالة:**
 ```javascript
 import { updateOrderStatus } from './services/supabaseOrderService';
-
 await updateOrderStatus(orderId, 'مكتمل');
 ```
 
 ### 4. **الوقت الفعلي:**
 ```javascript
 import { subscribeToNewOrders } from './services/supabaseOrderService';
-
 const subscription = subscribeToNewOrders((newOrder) => {
   console.log('طلب جديد:', newOrder);
 });
@@ -99,6 +95,7 @@ const subscription = subscribeToNewOrders((newOrder) => {
 ### **للإدارة:**
 ```
 🎯 طلب سيرة ذاتية جديد
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 👤 معلومات العميل:
@@ -178,7 +175,6 @@ const subscription = subscribeToNewOrders((newOrder) => {
 النظام الآن **متكامل ومتقدم** مع Supabase! 🚀✨
 
 ## 🎮 **الميزات الإضافية:**
-
 - **بيانات تجريبية** جاهزة للاختبار
 - **واجهة عربية بالكامل**
 - **تصميم متجاوب**
@@ -186,3 +182,18 @@ const subscription = subscribeToNewOrders((newOrder) => {
 - **سهولة الصيانة**
 
 جميع الطلبات محفوظة بأمان في Supabase مع إمكانية الوصول إليها من أي مكان! 🌟
+
+---
+
+## 🏢 **معلومات الشركة:**
+
+**ضياء الدين بووش للتصاميم**
+- تصميم السير الذاتية الاحترافية
+- تصميم اللوجوهات والهوية البصرية
+- خدمات التصميم المتخصصة
+- خبرة أكثر من 3 سنوات
+
+**التواصل:**
+- البريد الإلكتروني: nestaman2@gmail.com
+- الهاتف: +971 XX XXX XXXX
+- الموقع: الإمارات العربية المتحدة
