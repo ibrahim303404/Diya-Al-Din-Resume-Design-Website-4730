@@ -48,8 +48,18 @@ const OrderForm = ({ onSubmit }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+
       if (allowedTypes.includes(file.type)) {
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+          alert('حجم الملف كبير جداً. الحد الأقصى 10MB');
+          return;
+        }
         setFormData(prev => ({
           ...prev,
           existingCV: file
@@ -78,20 +88,6 @@ const OrderForm = ({ onSubmit }) => {
     return packagePrice + servicesPrice;
   };
 
-  // اختبار الاتصال قبل الإرسال
-  const testConnection = async () => {
-    setSubmitStatus('اختبار الاتصال بقاعدة البيانات...');
-    const result = await testDatabaseConnection();
-    
-    if (!result.success) {
-      setSubmitStatus('فشل في الاتصال بقاعدة البيانات');
-      setErrorDetails(`خطأ في الاتصال: ${result.error}`);
-      return false;
-    }
-    
-    return true;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -101,12 +97,6 @@ const OrderForm = ({ onSubmit }) => {
     console.log('🚀 بدء معالجة الطلب:', formData);
 
     try {
-      // اختبار الاتصال أولاً
-      const connectionOk = await testConnection();
-      if (!connectionOk) {
-        return;
-      }
-
       setSubmitStatus('جاري حفظ الطلب في قاعدة البيانات...');
 
       const orderData = {
@@ -115,11 +105,11 @@ const OrderForm = ({ onSubmit }) => {
         timestamp: new Date().toISOString()
       };
 
-      console.log('📦 بيانات الطلب المرسلة:', orderData);
+      console.log('📦 بيانات الطلب:', orderData);
 
       // حفظ الطلب في Supabase
       const result = await saveOrderToDatabase(orderData);
-      
+
       console.log('📥 نتيجة حفظ الطلب:', result);
 
       if (result.success) {
@@ -132,14 +122,14 @@ const OrderForm = ({ onSubmit }) => {
           status: 'جديد',
           date: new Date().toLocaleDateString('ar-AE')
         };
-        
+
         if (onSubmit) {
           onSubmit(localOrderData);
         }
-        
+
         setIsSubmitted(true);
 
-        // إعادة تعيين النموذج بعد النجاح
+        // إعادة تعيين النموذج
         setTimeout(() => {
           setIsSubmitted(false);
           setSubmitStatus('');
@@ -156,7 +146,6 @@ const OrderForm = ({ onSubmit }) => {
             existingCV: null
           });
         }, 5000);
-
       } else {
         setSubmitStatus('❌ فشل في حفظ الطلب');
         setErrorDetails(result.message || result.error || 'خطأ غير معروف');
@@ -166,7 +155,6 @@ const OrderForm = ({ onSubmit }) => {
           setErrorDetails('');
         }, 5000);
       }
-
     } catch (error) {
       console.error('💥 خطأ عام في إرسال الطلب:', error);
       setSubmitStatus('❌ حدث خطأ غير متوقع');
@@ -193,19 +181,22 @@ const OrderForm = ({ onSubmit }) => {
             <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <SafeIcon icon={FiCheckCircle} className="text-white text-2xl" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4">تم حفظ طلبك بنجاح!</h3>
+            <h3 className="text-2xl font-bold text-gray-800 mb-4">تم إرسال طلبك بنجاح!</h3>
             <p className="text-gray-600 mb-6">
-              شكراً لك على ثقتك بنا. تم حفظ تفاصيل طلبك في قاعدة البيانات وإرسال الإشعارات. 
-              سنتواصل معك قريباً لتأكيد التفاصيل والبدء في العمل.
+              شكراً لك على ثقتك بنا. تم حفظ تفاصيل طلبك وسنتواصل معك قريباً.
             </p>
             <div className="bg-blue-50 rounded-lg p-4 mb-4">
               <p className="text-sm text-blue-800">
                 <strong>إجمالي المبلغ:</strong> {calculateTotal()} درهم
               </p>
             </div>
-            <div className="text-sm text-gray-500">
-              تم إرسال تأكيد الطلب إلى بريدك الإلكتروني
-            </div>
+            {formData.existingCV && (
+              <div className="bg-green-50 rounded-lg p-4 mb-4">
+                <p className="text-sm text-green-800">
+                  <strong>الملف المرفق:</strong> {formData.existingCV.name}
+                </p>
+              </div>
+            )}
           </motion.div>
         </div>
       </section>
@@ -223,7 +214,7 @@ const OrderForm = ({ onSubmit }) => {
         >
           <h2 className="text-4xl font-bold text-gray-800 mb-4">اطلب سيرتك الذاتية الآن</h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            املأ النموذج أدناه وسيتم حفظ طلبك في قاعدة البيانات وإرسال الإشعارات تلقائياً
+            املأ النموذج أدناه وسيتم حفظ طلبك في قاعدة البيانات
           </p>
         </motion.div>
 
@@ -236,7 +227,7 @@ const OrderForm = ({ onSubmit }) => {
             className="bg-white rounded-2xl shadow-2xl p-8"
           >
             <div className="grid md:grid-cols-2 gap-12">
-              {/* المعلومات الشخصية - يمين */}
+              {/* المعلومات الشخصية */}
               <div className="order-1 space-y-6">
                 <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                   <SafeIcon icon={FiUser} className="mr-3 text-blue-600 text-xl" />
@@ -327,10 +318,10 @@ const OrderForm = ({ onSubmit }) => {
                   </select>
                 </div>
 
-                {/* رفع ملف السيرة الذاتية السابقة */}
+                {/* رفع ملف */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    رفع سيرة ذاتية سابقة للتعديل عليها (اختياري)
+                    رفع سيرة ذاتية سابقة (اختياري)
                   </label>
                   <div className="relative">
                     <input
@@ -352,7 +343,10 @@ const OrderForm = ({ onSubmit }) => {
                     {formData.existingCV && (
                       <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
                         <SafeIcon icon={FiFile} />
-                        <span>تم رفع الملف: {formData.existingCV.name}</span>
+                        <span>تم اختيار: {formData.existingCV.name}</span>
+                        <span className="text-xs text-gray-500">
+                          ({(formData.existingCV.size / 1024 / 1024).toFixed(2)} MB)
+                        </span>
                       </div>
                     )}
                   </div>
@@ -362,7 +356,7 @@ const OrderForm = ({ onSubmit }) => {
                 </div>
               </div>
 
-              {/* تفاصيل الطلب - يسار */}
+              {/* تفاصيل الطلب */}
               <div className="order-2 space-y-6">
                 <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                   <SafeIcon icon={FiFileText} className="mr-3 text-blue-600 text-xl" />
@@ -479,9 +473,9 @@ const OrderForm = ({ onSubmit }) => {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className={`mt-6 p-4 rounded-lg ${
-                  submitStatus.includes('✅') 
+                  submitStatus.includes('✅')
                     ? 'bg-green-50 text-green-800 border border-green-200'
-                    : submitStatus.includes('❌') 
+                    : submitStatus.includes('❌')
                     ? 'bg-red-50 text-red-800 border border-red-200'
                     : 'bg-blue-50 text-blue-800 border border-blue-200'
                 }`}
@@ -512,34 +506,22 @@ const OrderForm = ({ onSubmit }) => {
                 whileTap={{ scale: isLoading ? 1 : 0.95 }}
                 className={`px-16 py-4 rounded-full font-bold text-lg shadow-lg transition-all ${
                   isLoading || !formData.package || !formData.name || !formData.email || !formData.phone || !formData.profession
-                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-xl'
                 }`}
               >
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <SafeIcon icon={FiLoader} className="animate-spin" />
-                    جاري الحفظ...
+                    جاري الإرسال...
                   </div>
                 ) : (
-                  'حفظ الطلب الآن'
+                  'إرسال الطلب'
                 )}
               </motion.button>
               <p className="text-sm text-gray-500 mt-4">
-                سيتم حفظ طلبك في قاعدة البيانات وإرسال الإشعارات تلقائياً
+                سيتم حفظ طلبك في قاعدة البيانات بأمان
               </p>
-              
-              {/* زر اختبار الاتصال */}
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={testConnection}
-                  className="text-sm text-blue-600 hover:text-blue-800 underline"
-                  disabled={isLoading}
-                >
-                  اختبار الاتصال بقاعدة البيانات
-                </button>
-              </div>
             </div>
           </motion.form>
         </div>

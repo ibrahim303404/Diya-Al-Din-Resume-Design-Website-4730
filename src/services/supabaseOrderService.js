@@ -1,13 +1,12 @@
 import supabase from '../lib/supabase';
 
-// حفظ الطلب في قاعدة البيانات
+// حفظ الطلب في قاعدة البيانات (بدون أي تعامل مع الملفات)
 export const saveOrderToDatabase = async (orderData) => {
   try {
     console.log('🔄 بدء حفظ الطلب:', orderData);
-    
     const orderId = `CV-${Date.now()}`;
-    
-    // إعداد البيانات للحفظ
+
+    // إعداد البيانات للحفظ (بدون أي معلومات ملفات)
     const orderRecord = {
       customer_name: orderData.name,
       customer_email: orderData.email,
@@ -19,6 +18,7 @@ export const saveOrderToDatabase = async (orderData) => {
       additional_services: orderData.additionalServices || [],
       total_price: orderData.totalPrice,
       notes: orderData.notes || null,
+      // حفظ اسم الملف فقط كنص (بدون رفع)
       existing_cv_filename: orderData.existingCV ? orderData.existingCV.name : null,
       order_status: 'جديد',
       order_id: orderId
@@ -26,20 +26,7 @@ export const saveOrderToDatabase = async (orderData) => {
 
     console.log('📝 البيانات المحضرة للحفظ:', orderRecord);
 
-    // التحقق من الاتصال بـ Supabase أولاً
-    const { data: testConnection, error: connectionError } = await supabase
-      .from('cv_orders_2024')
-      .select('count')
-      .limit(1);
-
-    if (connectionError) {
-      console.error('❌ خطأ في الاتصال بـ Supabase:', connectionError);
-      throw new Error(`خطأ في الاتصال بقاعدة البيانات: ${connectionError.message}`);
-    }
-
-    console.log('✅ تم التحقق من الاتصال بـ Supabase');
-
-    // حفظ الطلب
+    // حفظ الطلب في قاعدة البيانات
     const { data, error } = await supabase
       .from('cv_orders_2024')
       .insert([orderRecord])
@@ -48,44 +35,10 @@ export const saveOrderToDatabase = async (orderData) => {
 
     if (error) {
       console.error('❌ خطأ في حفظ الطلب:', error);
-      
-      // معالجة أخطاء محددة
-      if (error.code === '23505') {
-        throw new Error('رقم الطلب مكرر. يرجى المحاولة مرة أخرى.');
-      } else if (error.code === '23502') {
-        throw new Error('بيانات مطلوبة مفقودة. يرجى التأكد من ملء جميع الحقول المطلوبة.');
-      } else if (error.message.includes('permission')) {
-        throw new Error('خطأ في الصلاحيات. يرجى المحاولة مرة أخرى.');
-      } else {
-        throw new Error(`خطأ في حفظ الطلب: ${error.message}`);
-      }
+      throw new Error(`خطأ في حفظ الطلب: ${error.message}`);
     }
 
     console.log('✅ تم حفظ الطلب بنجاح:', data);
-
-    // حفظ إشعار البريد الإلكتروني
-    try {
-      await saveEmailNotification({
-        order_id: orderId,
-        recipient_email: 'nestaman2@gmail.com',
-        email_type: 'admin_notification',
-        subject: `طلب سيرة ذاتية جديد - ${orderData.name}`,
-        content: formatAdminNotification(data)
-      });
-
-      await saveEmailNotification({
-        order_id: orderId,
-        recipient_email: orderData.email,
-        email_type: 'customer_confirmation',
-        subject: 'تأكيد استلام طلبك - ضياء الدين لتصميم السير الذاتية',
-        content: formatCustomerConfirmation(data)
-      });
-
-      console.log('✅ تم حفظ الإشعارات بنجاح');
-    } catch (notificationError) {
-      console.warn('⚠️ فشل في حفظ الإشعارات:', notificationError);
-      // لا نوقف العملية إذا فشلت الإشعارات
-    }
 
     return {
       success: true,
@@ -104,92 +57,60 @@ export const saveOrderToDatabase = async (orderData) => {
   }
 };
 
-// حفظ إشعار البريد الإلكتروني
-const saveEmailNotification = async (notificationData) => {
+// إنشاء ملف نص بمعلومات الطلب للتحميل
+export const downloadFileDirectly = async (order) => {
   try {
-    const { data, error } = await supabase
-      .from('email_notifications_2024')
-      .insert([notificationData])
-      .select()
-      .single();
+    console.log('📥 إنشاء ملف معلومات الطلب');
 
-    if (error) {
-      console.error('خطأ في حفظ الإشعار:', error);
-      throw error;
-    }
+    // إنشاء محتوى الملف
+    const fileContent = `
+معلومات الطلب - ${order.customer_name}
+═══════════════════════════════════════════
 
-    return data;
+📧 البريد الإلكتروني: ${order.customer_email}
+📱 الهاتف: ${order.customer_phone}
+💼 المهنة: ${order.profession}
+🎯 سنوات الخبرة: ${order.experience || 'غير محدد'}
+
+🆔 رقم الطلب: ${order.order_id}
+📦 الباقة: ${order.package_name}
+💰 السعر: ${order.total_price} درهم
+📅 التاريخ: ${new Date(order.order_date || Date.now()).toLocaleDateString('ar-AE')}
+
+📁 الملف المرفوع: ${order.existing_cv_filename || 'لا يوجد'}
+
+📝 الملاحظات:
+${order.notes || 'لا توجد ملاحظات'}
+
+═══════════════════════════════════════════
+تم إنشاء هذا الملف تلقائياً
+ضياء الدين - تصميم السير الذاتية
+`;
+
+    // تحميل الملف
+    const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `CV_Order_${order.customer_name}_${order.order_id}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    console.log('✅ تم تحميل ملف المعلومات');
+    return { 
+      success: true, 
+      message: 'تم تحميل ملف معلومات الطلب'
+    };
+
   } catch (error) {
-    console.error('خطأ في حفظ الإشعار:', error);
-    throw error;
+    console.error('❌ خطأ في تحميل الملف:', error);
+    return { 
+      success: false, 
+      error: error.message
+    };
   }
-};
-
-// تنسيق إشعار الإدارة
-const formatAdminNotification = (orderData) => {
-  return `
-🎯 طلب سيرة ذاتية جديد
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-👤 معلومات العميل:
-• الاسم: ${orderData.customer_name}
-• البريد الإلكتروني: ${orderData.customer_email}
-• رقم الهاتف: ${orderData.customer_phone}
-• المهنة: ${orderData.profession}
-• سنوات الخبرة: ${orderData.experience || 'غير محدد'}
-
-📦 تفاصيل الطلب:
-• الباقة المختارة: ${orderData.package_name}
-• الخدمات الإضافية: ${formatAdditionalServices(orderData.additional_services)}
-• السعر الإجمالي: ${orderData.total_price} درهم
-
-📄 السيرة الذاتية السابقة:
-• يوجد ملف سابق: ${orderData.existing_cv_filename ? 'نعم' : 'لا'}
-• اسم الملف: ${orderData.existing_cv_filename || 'لا يوجد'}
-
-📝 ملاحظات إضافية:
-${orderData.notes || 'لا توجد ملاحظات'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🕐 تاريخ الطلب: ${new Date(orderData.order_date).toLocaleString('ar-AE')}
-🆔 رقم الطلب: ${orderData.order_id}
-
-يرجى التواصل مع العميل خلال 24 ساعة.
-  `;
-};
-
-// تنسيق تأكيد العميل
-const formatCustomerConfirmation = (orderData) => {
-  return `
-عزيزي/عزيزتي ${orderData.customer_name}،
-
-شكراً لك على ثقتك في خدماتنا! 🙏
-تم استلام طلبك بنجاح وحفظه في نظامنا.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 تفاصيل طلبك:
-• رقم الطلب: ${orderData.order_id}
-• الباقة المختارة: ${orderData.package_name}
-• المبلغ الإجمالي: ${orderData.total_price} درهم
-• تاريخ الطلب: ${new Date(orderData.order_date).toLocaleString('ar-AE')}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⏰ الخطوات التالية:
-1. سنراجع تفاصيل طلبك خلال 24 ساعة
-2. سنتواصل معك لتأكيد التفاصيل
-3. سنبدأ العمل على سيرتك الذاتية
-4. سنرسل لك النسخة الأولى للمراجعة
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📞 للتواصل:
-• البريد الإلكتروني: nestaman2@gmail.com
-• الهاتف: +971 XX XXX XXXX
-
-شكراً لثقتك بنا! ✨
-
-ضياء الدين
-تصميم السير الذاتية الاحترافية
-  `;
 };
 
 // دالة مساعدة لتحويل رمز الباقة إلى اسم
@@ -202,43 +123,26 @@ const getPackageName = (packageCode) => {
   return packages[packageCode] || 'غير محدد';
 };
 
-// دالة مساعدة لتنسيق الخدمات الإضافية
-const formatAdditionalServices = (services) => {
-  if (!services || services.length === 0) {
-    return 'لا توجد خدمات إضافية';
-  }
-
-  const serviceNames = {
-    'update': 'تحديث السيرة الذاتية (75 درهم)',
-    'translation': 'ترجمة إلى الإنجليزية (100 درهم)',
-    'cover-letter': 'خطاب تعريفي إضافي (50 درهم)',
-    'linkedin': 'تحسين ملف LinkedIn (125 درهم)'
-  };
-
-  return services.map(service => serviceNames[service] || service).join(', ');
-};
-
-// جلب جميع الطلبات للوحة التحكم
+// جلب جميع الطلبات
 export const getAllOrders = async () => {
   try {
     console.log('🔄 جلب جميع الطلبات...');
-    
+
     const { data, error } = await supabase
       .from('cv_orders_2024')
       .select('*')
-      .order('order_date', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('خطأ في جلب الطلبات:', error);
       throw error;
     }
 
-    console.log('✅ تم جلب الطلبات بنجاح:', data?.length || 0, 'طلب');
+    console.log('✅ تم جلب الطلبات بنجاح:', data?.length || 0);
     return {
       success: true,
       orders: data || []
     };
-
   } catch (error) {
     console.error('خطأ في جلب الطلبات:', error);
     return {
@@ -253,13 +157,10 @@ export const getAllOrders = async () => {
 export const updateOrderStatus = async (orderId, newStatus) => {
   try {
     console.log('🔄 تحديث حالة الطلب:', orderId, 'إلى:', newStatus);
-    
+
     const { data, error } = await supabase
       .from('cv_orders_2024')
-      .update({ 
-        order_status: newStatus,
-        updated_at: new Date().toISOString()
-      })
+      .update({ order_status: newStatus })
       .eq('id', orderId)
       .select()
       .single();
@@ -274,7 +175,6 @@ export const updateOrderStatus = async (orderId, newStatus) => {
       success: true,
       order: data
     };
-
   } catch (error) {
     console.error('خطأ في تحديث الطلب:', error);
     return {
@@ -288,7 +188,7 @@ export const updateOrderStatus = async (orderId, newStatus) => {
 export const deleteOrder = async (orderId) => {
   try {
     console.log('🔄 حذف الطلب:', orderId);
-    
+
     const { error } = await supabase
       .from('cv_orders_2024')
       .delete()
@@ -300,10 +200,7 @@ export const deleteOrder = async (orderId) => {
     }
 
     console.log('✅ تم حذف الطلب بنجاح');
-    return {
-      success: true
-    };
-
+    return { success: true };
   } catch (error) {
     console.error('خطأ في حذف الطلب:', error);
     return {
@@ -313,10 +210,10 @@ export const deleteOrder = async (orderId) => {
   }
 };
 
-// الاستماع للطلبات الجديدة في الوقت الفعلي
+// الاستماع للطلبات الجديدة
 export const subscribeToNewOrders = (callback) => {
   console.log('🔄 بدء الاستماع للطلبات الجديدة...');
-  
+
   const subscription = supabase
     .channel('cv_orders_2024')
     .on('postgres_changes', {
@@ -324,48 +221,45 @@ export const subscribeToNewOrders = (callback) => {
       schema: 'public',
       table: 'cv_orders_2024'
     }, (payload) => {
-      console.log('📨 طلب جديد وارد:', payload.new);
+      console.log('📨 طلب جديد:', payload.new);
       callback(payload.new);
     })
     .subscribe();
 
-  console.log('✅ تم بدء الاستماع للطلبات الجديدة');
   return subscription;
 };
 
 // إلغاء الاشتراك
 export const unsubscribeFromOrders = (subscription) => {
-  console.log('🔄 إلغاء الاشتراك في الطلبات...');
+  console.log('🔄 إلغاء الاشتراك...');
   supabase.removeChannel(subscription);
-  console.log('✅ تم إلغاء الاشتراك');
 };
 
-// اختبار الاتصال بقاعدة البيانات
+// اختبار الاتصال
 export const testDatabaseConnection = async () => {
   try {
-    console.log('🔄 اختبار الاتصال بقاعدة البيانات...');
-    
+    console.log('🔄 اختبار الاتصال...');
+
     const { data, error } = await supabase
       .from('cv_orders_2024')
       .select('count')
       .limit(1);
 
     if (error) {
-      console.error('❌ فشل اختبار الاتصال:', error);
+      console.error('❌ فشل الاتصال:', error);
       return {
         success: false,
         error: error.message
       };
     }
 
-    console.log('✅ نجح اختبار الاتصال');
+    console.log('✅ الاتصال ناجح');
     return {
       success: true,
-      message: 'الاتصال بقاعدة البيانات يعمل بشكل صحيح'
+      message: 'الاتصال بقاعدة البيانات يعمل'
     };
-
   } catch (error) {
-    console.error('❌ خطأ في اختبار الاتصال:', error);
+    console.error('❌ خطأ في الاتصال:', error);
     return {
       success: false,
       error: error.message

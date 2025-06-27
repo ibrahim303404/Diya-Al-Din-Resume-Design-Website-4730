@@ -5,12 +5,17 @@ import SafeIcon from '../common/SafeIcon';
 import { 
   getAllOrders, 
   updateOrderStatus, 
-  deleteOrder,
-  subscribeToNewOrders,
-  unsubscribeFromOrders
+  deleteOrder, 
+  subscribeToNewOrders, 
+  unsubscribeFromOrders,
+  downloadFileDirectly
 } from '../services/supabaseOrderService';
 
-const { FiHome, FiLogOut, FiUsers, FiDollarSign, FiClock, FiCheck, FiX, FiEye, FiEdit, FiTrash2, FiRefreshCw } = FiIcons;
+const { 
+  FiHome, FiLogOut, FiUsers, FiDollarSign, FiClock, FiCheck, FiX, 
+  FiEye, FiEdit, FiTrash2, FiRefreshCw, FiDownload, FiFile, 
+  FiAlertCircle 
+} = FiIcons;
 
 const AdminDashboard = () => {
   const [orders, setOrders] = useState([]);
@@ -25,6 +30,7 @@ const AdminDashboard = () => {
     // الاستماع للطلبات الجديدة في الوقت الفعلي
     const subscription = subscribeToNewOrders((newOrder) => {
       setOrders(prev => [newOrder, ...prev]);
+      
       // إشعار صوتي أو بصري للطلب الجديد
       if (Notification.permission === 'granted') {
         new Notification('طلب جديد!', {
@@ -64,9 +70,13 @@ const AdminDashboard = () => {
     try {
       const result = await updateOrderStatus(orderId, newStatus);
       if (result.success) {
-        setOrders(prev => prev.map(order => 
-          order.id === orderId ? { ...order, order_status: newStatus } : order
-        ));
+        setOrders(prev => 
+          prev.map(order => 
+            order.id === orderId 
+              ? { ...order, order_status: newStatus }
+              : order
+          )
+        );
       } else {
         alert('فشل في تحديث حالة الطلب');
       }
@@ -88,6 +98,77 @@ const AdminDashboard = () => {
         alert('حدث خطأ في حذف الطلب');
       }
     }
+  };
+
+  // تحميل الملف المرفوع
+  const handleDownloadFile = async (order) => {
+    try {
+      if (!order.existing_cv_filename) {
+        alert('لا يوجد ملف مرفق مع هذا الطلب');
+        return;
+      }
+
+      console.log('🔄 بدء تحميل الملف:', order.existing_cv_filename);
+      
+      const result = await downloadFileDirectly(order);
+      
+      if (result.success) {
+        console.log('✅ تم تحميل الملف بنجاح');
+      } else if (result.fallback) {
+        alert('تم إنشاء ملف نموذجي بدلاً من الملف الأصلي');
+      } else {
+        alert(`حدث خطأ في تحميل الملف: ${result.error}`);
+      }
+
+    } catch (error) {
+      console.error('خطأ في تحميل الملف:', error);
+      alert('حدث خطأ في تحميل الملف');
+    }
+  };
+
+  // معاينة معلومات الملف
+  const getFileInfo = (order) => {
+    if (!order.existing_cv_filename) {
+      return {
+        hasFile: false,
+        filename: 'لا يوجد',
+        fileType: '',
+        fileIcon: FiAlertCircle,
+        iconColor: 'text-gray-400'
+      };
+    }
+
+    const filename = order.existing_cv_filename;
+    const extension = filename.split('.').pop()?.toLowerCase();
+    let fileIcon = FiFile;
+    let iconColor = 'text-blue-500';
+    let fileType = 'مستند';
+
+    switch (extension) {
+      case 'pdf':
+        fileIcon = FiFile;
+        iconColor = 'text-red-500';
+        fileType = 'PDF';
+        break;
+      case 'doc':
+      case 'docx':
+        fileIcon = FiFile;
+        iconColor = 'text-blue-600';
+        fileType = 'Word';
+        break;
+      default:
+        fileIcon = FiFile;
+        iconColor = 'text-gray-500';
+        fileType = 'مستند';
+    }
+
+    return {
+      hasFile: true,
+      filename,
+      fileType,
+      fileIcon,
+      iconColor
+    };
   };
 
   const getStatusColor = (status) => {
@@ -260,64 +341,101 @@ const AdminDashboard = () => {
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الباقة</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">السعر</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الحالة</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ملف سابق</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">التاريخ</th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الإجراءات</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
-                          <div className="text-sm text-gray-500">{order.customer_email}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {order.profession}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {getPackageDisplayName(order.package_type)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {order.total_price} درهم
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.order_status)}`}>
-                          {order.order_status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(order.order_date).toLocaleDateString('ar-AE')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2 space-x-reverse">
-                          <button
-                            onClick={() => setSelectedOrder(order)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            <SafeIcon icon={FiEye} />
-                          </button>
-                          <select
-                            value={order.order_status}
-                            onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
-                            className="text-xs border border-gray-300 rounded px-2 py-1"
-                          >
-                            <option value="جديد">جديد</option>
-                            <option value="قيد التنفيذ">قيد التنفيذ</option>
-                            <option value="مكتمل">مكتمل</option>
-                            <option value="ملغي">ملغي</option>
-                          </select>
-                          <button
-                            onClick={() => handleDeleteOrder(order.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <SafeIcon icon={FiTrash2} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {orders.map((order) => {
+                    const fileInfo = getFileInfo(order);
+                    return (
+                      <tr key={order.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
+                            <div className="text-sm text-gray-500">{order.customer_email}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {order.profession}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {getPackageDisplayName(order.package_type)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {order.total_price} درهم
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.order_status)}`}>
+                            {order.order_status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {fileInfo.hasFile ? (
+                            <div className="flex items-center space-x-2 space-x-reverse">
+                              <SafeIcon icon={fileInfo.fileIcon} className={`${fileInfo.iconColor} text-lg`} />
+                              <div className="flex flex-col">
+                                <span className="text-xs text-gray-700 font-medium">{fileInfo.fileType}</span>
+                                <button
+                                  onClick={() => handleDownloadFile(order)}
+                                  className="text-xs text-blue-600 hover:text-blue-800 underline text-right"
+                                  title={`تحميل ${fileInfo.filename}`}
+                                >
+                                  تحميل الملف
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2 space-x-reverse text-gray-400">
+                              <SafeIcon icon={FiAlertCircle} />
+                              <span className="text-xs">لا يوجد</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(order.order_date).toLocaleDateString('ar-AE')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2 space-x-reverse">
+                            <button
+                              onClick={() => setSelectedOrder(order)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="عرض التفاصيل"
+                            >
+                              <SafeIcon icon={FiEye} />
+                            </button>
+                            {fileInfo.hasFile && (
+                              <button
+                                onClick={() => handleDownloadFile(order)}
+                                className="text-green-600 hover:text-green-900"
+                                title="تحميل الملف المرفق"
+                              >
+                                <SafeIcon icon={FiDownload} />
+                              </button>
+                            )}
+                            <select
+                              value={order.order_status}
+                              onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
+                              className="text-xs border border-gray-300 rounded px-2 py-1"
+                            >
+                              <option value="جديد">جديد</option>
+                              <option value="قيد التنفيذ">قيد التنفيذ</option>
+                              <option value="مكتمل">مكتمل</option>
+                              <option value="ملغي">ملغي</option>
+                            </select>
+                            <button
+                              onClick={() => handleDeleteOrder(order.id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="حذف الطلب"
+                            >
+                              <SafeIcon icon={FiTrash2} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -375,7 +493,22 @@ const AdminDashboard = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">ملف سابق</label>
-                  <p className="text-gray-900">{selectedOrder.existing_cv_filename || 'لا يوجد'}</p>
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    {selectedOrder.existing_cv_filename ? (
+                      <>
+                        <SafeIcon icon={FiFile} className="text-blue-500" />
+                        <span className="text-gray-900">{selectedOrder.existing_cv_filename}</span>
+                        <button
+                          onClick={() => handleDownloadFile(selectedOrder)}
+                          className="text-blue-600 hover:text-blue-800 underline text-sm"
+                        >
+                          تحميل
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-gray-500">لا يوجد</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -403,6 +536,27 @@ const AdminDashboard = () => {
                   <span className="text-xl font-bold text-blue-600">{selectedOrder.total_price} درهم</span>
                 </div>
               </div>
+
+              {/* زر تحميل الملف في التفاصيل */}
+              {selectedOrder.existing_cv_filename && (
+                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <SafeIcon icon={FiDownload} className="text-green-600" />
+                      <span className="text-green-800 font-medium">الملف المرفق</span>
+                    </div>
+                    <button
+                      onClick={() => handleDownloadFile(selectedOrder)}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      تحميل الملف
+                    </button>
+                  </div>
+                  <p className="text-sm text-green-700 mt-2">
+                    اسم الملف: {selectedOrder.existing_cv_filename}
+                  </p>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
